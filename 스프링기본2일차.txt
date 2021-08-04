@@ -1,0 +1,423 @@
+스프링 기본 2일차
+
+______________________________________________________________________________________
+
+스프링 핵심 원리 이해를 위해 예제를 구현해서
+왜 역할과 구현을 구분해야하고,(interface와 구현체)
+순수한 자바로 개발함으로써 왜 스프링이 필요하고, 스프링을 쓰면 얼마나 더 편리한지 확인과 이해
+
+
+만들 것
+1.비즈니스 요구사항과 설계
+2.회원 도메인 설계 개발 실행 및 테스트
+3.주문과 할인 도메인 설계 개발 실행 및 테스트 in Pure Java
+
+
+순수한 자바코드를 짜봄으로써, OCP(개방 폐쇄 원칙) DIP(의존성 역전 법칙)이
+순수한 자바코드로 짜도 잘 지켜지는지 확인
+
+
+*팁
+gradle로 스프링을 만들고 build.gradle에서 새로운 라이브러리 추가시 업데이트를 해줘야 적용 됨.
+(자동 적용X)
+
+ 
+build.gradle설명
+plugins {
+	id 'org.springframework.boot' version '2.5.3'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+}
+
+스프링부트 버전, 스프링 의존관계 관리 버전,어떤 언어인지.
+
+group = 'hello'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+프로젝트 그룹을 뭘로 지었는지, 버전과 자바 버전 설정.
+
+repositories {
+	mavenCentral()
+}
+어떤 저장소를 쓰는지
+
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+의존들(외부 라이브러리를 "아는것"(의존))
+스프링부트 스타터랑, 테스트 구현.
+
+
+
+꿀팁: file -settings에서 grdle 검색후 test와 main이 gradle로 되어있는걸 intellij로
+바꾸면 인텔리제이에서 바로 실행해서 속도 빨라짐.
+
+
+순수자바로 할거지만, 스프링 보드위에 자바로 코딩하는게 내장서버등 실행환경등에 이점이 많아서
+일단 스프링으로 하는것. 구현 자체는 자바 언어로만 할듯.
+
+
+
+______________________________________________________________________________________
+
+
+비지니스 요구사항과 설계
+
+
+비즈니스 요구사항과 설계
+
+회원
+회원을 가입하고 조회할 수 있다.
+회원은 일반과 VIP 두 가지 등급이 있다.
+회원 데이터는 자체 DB를 구축할 수 있고, 외부 시스템과 연동할 수 있다. (미확정)
+
+주문과 할인 정책
+회원은 상품을 주문할 수 있다.
+회원 등급에 따라 할인 정책을 적용할 수 있다.
+할인 정책은 모든 VIP는 1000원을 할인해주는 고정 금액 할인을 적용해달라. 
+(나중에 변경 될 수 있다.)
+할인 정책은 변경 가능성이 높다. 회사의 기본 할인 정책을 아직 정하지 못했고, 
+오픈 직전까지 고민을 미루고 싶다. 최악의 경우 할인을 적용하지 않을 수 도 있다. (미확정)
+
+
+
+회원 데이터, 할인정책은 지금 결정하기 어려움. -> 역할로써만 남겨놓고 구현조건이 나올때
+구현만 해주면 됨.(인터페이스만 구현 해놓기)
+
+
+
+
+
+______________________________________________________________________________________
+
+
+
+회원 도메인 설계
+
+회원 도메인 요구사항
+가입.조회.
+일반.VIP.
+자체DB or 외부 시스템과 연동.
+
+
+협력관계
+
+
+회원 객체 다이어그램.(객체간의 메모리 참조 순서)
+클라이언트 -> 회원서비스 -> 회원레포지토리
+
+
+회원 서비스(가입 조회 등급) 인터페이스
+회원 저장소(레포지토리) 인터페이스 ->메모리,db,외부시스템
+
+
+->
+
+MemberService ->MemberServiceImpl
+
+MemberRepository->MemoryMemberRepository
+		->DbMemberRepository
+
+
+회원 도메인 협력관계(기획자들도 볼수있는)
+      클래스 다이어그램(협력관계를 토대로 개발자가 만드는)
+      객체 다이어그램(클라이언트가 실제 사용하는 인스턴스들)
+
+클래스와 객체의 차이점: 인터페이스의 구현체가 정해지는건 runtime인데,
+클래스 다이어그램은 인터페이스와 구현체들의 관계만 나타내고
+객체 다이어그램은 runtime에서 객체들이 어떻게 선택되어지는지 flow를 나타냄.
+
+
+
+
+______________________________________________________________________________________
+
+
+회원 도메인 개발.
+
+enum에 grade를 만들어서 기본,vip나누고
+Member에 id,name,grade 후 생성자 생성.
+
+*꿀팁 
+생성자,getter,setter등 설정-> alt+ insert
+전체 선택:ctrl+a
+자바 패키지 폴더 정렬 방식:프로젝트 설정모양 클릭후 compact middle package->간소화
+아니면 .기준 계층화 되어서 패키지가 정렬되어있음.
+
+
+저장소(레포지토리)는 내장서버로 구현하기위해 메모리로 구현할건데,
+중복성을 막기위해 Map으로 구현
+
+Map?
+map의 특징: key-value로 쌍을 이루는 자료구조.
+key는 중복 불가. key없는 value, value없는 key는 존재 불가->항상 쌍으로 존재.
+
+put,get,remove를 많이씀.
+m.put(key,value);
+m.get(key)->return value.
+m.remove(key)->해당 key를 가진 key-value 순서쌍 삭제.
+
+자주쓰는 HashMap의 경우
+m.keySet() ->해당 Map에 key들을 모아 Set(집합)으로 리턴
+m.values()->해당 Map에 value들만 모아 Collection으로 리턴.
+
+Set<Map.Entry<key,value>> entries=map.entrySet()
+이렇게 Set으로 받으면 getKey() getValue()로 객체 데이터의 key value 모두 가져올수 있음.
+
+m.containsKey(key) 해당 key가 m에 있는지 t/f로 리턴
+m.containsValue(value) 해당 value가 m에 있는지 t/f로 리턴
+
+
+그리고, 실제 서버에 배포되는 HashMap의 경우 동시성(멀티스레드 안정성)때문에
+ConcurrentHashMap을 써야함.또는 HashTable.
+
+근데 실무에선 HashTable안씀.
+왜? 낡았고, 모든 코드에 동기화가 붙어있어 느림.
+그럼 ConcurrentHashMap은 왜 더 빠른가?
+읽기에 대해서 lock이 없음.
+쓰기에 Critical Section 진입부분에 대해서만 lock이(동기화 코드) 걸려있음.
+->그래서 HashMap의 동기화버전인 ConcurrentHashMap을 쓴다.
+
+**꿀팁
+메서드나 객체 생성할때 항상 맨뒤 ;이 안붙는데 ctrl+shift+enter하면 붙어서 나온다.
+
+
+
+회원 도메인에 있어서
+
+회원->이름,등급,id(서버 확인용,Map 매핑용)
+
+서비스->회원가입 회원조회
+
+저장소->memory로. 그래서
+Member,MemberRepository,MemoryMemberRepository,MemberService,MemberServiceImpl을
+만듬.
+
+**꿀팁
+인터페이스의 구현체가 1개인 경우 그냥 뒤에 Impl로 구현하는게 관례.
+
+
+
+______________________________________________________________________________________
+
+
+테스트
+
+회원 도메인 정상동작 확인 테스트.
+->"객체"다이어그램을 따라가며 제대로 동작하는지에 대한 코드를 짜면 됨.
+
+Member->MemberServiceImpl->MemoryMemberRepository
+
+->클래스 다이어그램: 정적 
+   객체 다이어그램:동적.
+
+
+**꿀팁
+new Member(1L, "memberA", Grade.VIP);이렇게 객체만 만들고
+객체에 맞는 클래스타입과 변수명을 자동 지정하려면?
+->ctrl+alt+v
+
+
+실제 JUnit없이 테스트 코드를 main메서드 통해 직접 구현해서 삽질 한번 해보고,
+이제 Test패키지에 실제 테스트 코드 작성.
+
+보통 해당 클래스+Test로 클래스 생성.
+후 테스트해보려는 메서드에 @Test 어노테이션 달고 어떻게 테스트할지 코드 작성.
+
+테스트 코드는 기본적으로 given when then 원칙을 따라야하는데,
+
+given:주어진것
+when:이렇게 했을때
+then:이렇게 되야한다.
+
+given이랑 when은 멤버를 생성하고 멤버서비스의 join기능을 활성화,findMember(member)활성화
+then에서 같은지 확인해야되는데 이때 Assertions를 import하면
+Assertions.assertThat(member).isEqualTo(findMember);로 편하게 검증 가능.
+
+테스트 코드는 어디서 오류가 났는지도 알려줘서 선택이 아닌 필수.
+
+
+
+
+회원 도메인 설계의 문제점
+다른 저장소로 변경시 OCP를 지키는가?
+DIP를 지키는가?
+->의존관계가 인터페이스 뿐만 아니라 "구현"까지 모두 의존함.
+private final MemberRepository memberRepository = new MemoryMemberRepository();
+여기에서 MemberRepository 인터페이스와 MemoryMemberRepository 구현체 모두를 의존함
+***인터페이스만 의존하게끔 만들어줘야함***
+
+
+
+
+______________________________________________________________________________________
+
+
+주문과 할인 도메인 설계
+
+
+
+주문과 할인 정책
+회원은 상품을 주문할 수 있다.
+회원 등급에 따라 할인 정책을 적용할 수 있다.
+할인 정책은 모든 VIP는 1000원을 할인해주는 고정 금액 할인을 적용해달라. 
+(나중에 변경 될 수 있다.)
+"할인 정책은 변경 가능성이 높다. 회사의 기본 할인 정책을 아직 정하지 못했고, 
+오픈 직전까지 고민을 미루고 싶다. 최악의 경우 할인을 적용하지 않을 수 도 있다. (미확정)"
+->이게 구현에 있어서 가장 중요.
+
+
+
+주문도메인 협력관계,역할,책임
+
+
+클라이언트 -> 주문서비스 "역할" ->회원 저장소 "역할"
+			     ->할인 정책 "역할"
+
+
+
+클라이언트 -> 주문서비스 "역할"
+1.주문 생성:클라이언트(컨트롤러,main)가 주문서비스에 주문 생성 요청.
+주문  생성시 필요한거: 회원 id,상품명,상품 가격
+
+
+주문서비스 "역할" ->회원 저장소 "역할"
+2.회원 조회:할인을 해줄지 결정하기위해 회원저장소로 가서 회원의 등급 조회.
+
+
+주문서비스 "역할"->할인 정책 "역할"
+3.할인 적용: 회원등급에 따라 할인 여부 확인후 할인 진행.
+
+
+클라이언트 <- 주문서비스 "역할"
+4.주문 결과 반환:주문 서비스는 할인결과를 포함한 주문결과를 클라이언트에게 반환.
+(원래는 주문결과를 db에 저장하는 과정도 거쳐야함.)
+
+
+****역할을 먼저 모두 다 만들고, 그 다음 구현체를 구현한다.****
+->자유롭게 구현 객체를 조립과 교체가 가능하다.
+(역할과 구현의 분리)
+
+
+클래스 다이어그램
+OrderService->MemberRepository
+	    ->DiscountPolicy
+
+
+객체 다이어그램
+클라이언트 -> 주문 서비스 구현체 -> 메모리 회원 저장소
+			       ->정액 할인 정책
+
+
+
+"역할들의 협력관계를 그대로 재사용 할수 있다"->객체지향에 있어서 궁극의 목적 달성.
+
+
+
+이후, 클라이언트->주문서비스 구현체 ->DB회원 저장소
+				->정률 할인정책
+으로 바꿔도, 구현체만 갈아끼우면, 기존 협력관계를 전혀 수정할 필요가 없다.
+
+
+
+______________________________________________________________________________________
+
+
+
+주문과 할인 도메인 개발
+
+
+**개꿀팁
+오류난곳으로 한번에 이동 -> f2..개굳
+generate(alt+insert)에서
+다른 메서드 호출시(toString같은 Object클래스 함수들)
+가능하고, 어떤 방식으로 return할지도 알아서 지정해줌.. 개꿀개꿀
+
+
+할인,주문에 있어서
+**클래스의 객체가 필요하면 멤버**로
+그 클래스에서 직접 구현할 건 메서드로 빼면 된다.
+
+
+    public Order createOrder(Long memberId, String itemName, int itemPrice) {
+        Member member = memberRepository.findById(memberId);
+        int discountPrice = discountPolicy.discount(member, itemPrice);
+
+        return new Order(memberId,itemName,itemPrice,discountPrice);
+    }
+
+이 코드에서
+할인 정책을 위해 주문 클래스 코드를 안건드려도 되는게
+단일 책임 원칙(SRP)를 잘 지킨 케이스. 할인을 고쳐야되는데 주문도 고쳐야된다? 나쁨.
+
+
+
+______________________________________________________________________________________
+
+
+주문과 할인 도메인 테스트
+
+
+일단, 순수하게 자바 메인 돌려서 실행.
+
+    public static void main(String[] args) {
+        MemberService memberService=new MemberServiceImpl();
+        OrderService orderService=new OrderServiceImpl();
+
+        Long memberId=1L;
+        Member member=new Member(memberId,"memberA", Grade.VIP);
+        memberService.join(member);
+
+        Order order = orderService.createOrder(memberId, "itemA", 10000);
+
+        System.out.println("order="+order.toString());
+    }
+
+
+멤버서비스,오더서비스 인터페이스 구현체 멤버로 생성.
+
+멤버 객체를 생성하고, 내장서버에 가입(join)시킴
+
+주문을 만듬.
+
+주문이 제대로 만들어졌는지 확인하는 출력문.(여기서 출력은 order에서 오버라이딩한 toString을)
+
+
+
+보통 테스트 코드에서, 테스트하는건 "서비스"가 잘 작동하는지 여부.
+
+
+테스트에서 단일테스트를 잘 만드는게 중요하다.
+(순수하게 자바코드로 테스트 할수 있으면, 속도가 상당히 빨라짐)
+
+
+"
+클라이언트가 주문 생성 요청하면
+
+주문 서비스가 회원 조회를 해서 VIP인지 확인하고
+
+VIP가 맞다면 할인 적용을 해서 -1000을 해줘서
+
+주문결과를 다시 클라이언트에게 반환
+"
+를 코드로 짜봄.
+
+
+이후엔 구현체를 갈아끼웠을때 OCP와 DIP를 해치지 않고 코딩이 가능한건가? 에 대해 알아볼 예정.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
